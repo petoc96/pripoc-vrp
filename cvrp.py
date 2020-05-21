@@ -86,18 +86,21 @@ def rate_solution(solution, edges):
         s = s + edges[(min(a, b), max(a, b))]
     return s
 
-
+#Elitist update rule-> the best solution deposits pheromone on its trail
 def update_feromone(feromones, solutions, best_solution):
     # get the average lenght of solutions
     Lavg = reduce(lambda x, y: x + y, (i[1] for i in solutions)) / len(solutions)
-    # update each paths feromone: ro + Q
+    #evaporation
+    # update each paths feromone: (1const + 2const/(avg lenght))*pheromone -> the less is the avg lenght the less is the evaporation ratio
     feromones = {k: (ro + th / Lavg) * v for (k, v) in feromones.items()}
+    #elitist update
     solutions.sort(key=lambda x: x[1])
     if best_solution is not None:
         if solutions[0][1] < best_solution[1]:
             best_solution = solutions[0]
         for path in best_solution[0]:
             for i in range(len(path) - 1):
+                #update the best path += sigma/weight
                 feromones[(min(path[i], path[i + 1]), max(path[i], path[i + 1]))] = sigm / best_solution[1] + feromones[
                     (min(path[i], path[i + 1]), max(path[i], path[i + 1]))]
     else:
@@ -107,6 +110,7 @@ def update_feromone(feromones, solutions, best_solution):
         L = solutions[l][1]
         for path in paths:
             for i in range(len(path) - 1):
+                #for the first pheromone update, update the sigma best paths, by weighting its orders
                 feromones[(min(path[i], path[i + 1]), max(path[i], path[i + 1]))] = (sigm - (l + 1) / L ** (l + 1)) + \
                                                                                     feromones[(
                                                                                     min(path[i], path[i + 1]),
