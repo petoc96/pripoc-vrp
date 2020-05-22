@@ -3,7 +3,7 @@ from aco import ACO
 
 
 if __name__ == '__main__':
-    file_path = 'data/c101.txt'
+    file_path = 'data/r101.txt'
     ants_num = 100
     max_iter = 1000
     beta = 2

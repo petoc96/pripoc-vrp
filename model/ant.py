@@ -69,14 +69,14 @@ class Ant:
 
         return True
 
-    def cal_next_index_meet_constrains(self):
+    def calculate_next_index_meet_constrains(self):
         next_index_meet_constrains = []
         for next_ind in self.index_to_visit:
             if self.check_condition(next_ind):
                 next_index_meet_constrains.append(next_ind)
         return next_index_meet_constrains
 
-    def cal_nearest_next_index(self, next_index_list):
+    def calculate_nearest_next_index(self, next_index_list):
         current_ind = self.current_index
 
         nearest_ind = next_index_list[0]
@@ -90,8 +90,7 @@ class Ant:
 
         return nearest_ind
 
-    @staticmethod
-    def cal_total_travel_distance(graph, travel_path):
+    def calculate_total_travel_distance(self, graph, travel_path):
         distance = 0
         current_ind = travel_path[0]
         for next_ind in travel_path[1:]:
@@ -99,7 +98,7 @@ class Ant:
             current_ind = next_ind
         return distance
 
-    def try_insert_on_path(self, node_id):
+    def insert_into_path(self, node_id):
         best_insert_index = None
         best_distance = None
 
@@ -155,7 +154,7 @@ class Ant:
 
         return best_insert_index
 
-    def insertion_procedure(self):
+    def insert(self):
         if self.index_to_visit_empty():
             return
 
@@ -177,7 +176,7 @@ class Ant:
 
             for node_id in ind_to_visit:
 
-                best_insert_index = self.try_insert_on_path(node_id)
+                best_insert_index = self.insert_into_path(node_id)
                 if best_insert_index is not None:
                     self.travel_path.insert(best_insert_index, node_id)
                     self.index_to_visit.remove(node_id)
@@ -190,10 +189,9 @@ class Ant:
         if self.index_to_visit_empty():
             print('[insertion_procedure]: success in insertion')
 
-        self.total_travel_distance = Ant.cal_total_travel_distance(self.graph, self.travel_path)
+        self.total_travel_distance = Ant.calculate_total_travel_distance(self.graph, self.travel_path)
 
-    @staticmethod
-    def local_search_once(graph, travel_path, travel_distance, i_start):
+    def local_search_once(self, graph, travel_path, travel_distance, i_start):
         # find out the location of all depots in the path
         depot_ind = []
         for ind in range(len(travel_path)):
@@ -254,7 +252,7 @@ class Ant:
                                 del check_ant
 
                                 if success_route_a and success_route_b:
-                                    new_path_distance = Ant.cal_total_travel_distance(graph, new_path)
+                                    new_path_distance = Ant.calculate_total_travel_distance(graph, new_path)
                                     if new_path_distance < travel_distance:
                                         # print('success to search')
 

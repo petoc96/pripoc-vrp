@@ -26,10 +26,10 @@ class ACO:
         # maximum number of iterations
         start_iteration = 0
         for iter in range(self.max_iter):
-            # set the current vehicle load, current travel distance, and current time for each ant
-            ants = list(Ant(self.graph) for _ in range(self.ants_num))
+            # initialize ants
+            ants = list(Ant(self.graph) for x in range(self.ants_num))
             for k in range(self.ants_num):
-                # ant needs to visit all customers
+                # visiting all customers
                 while not ants[k].index_to_visit_empty():
                     next_index = self.select_next_index(ants[k])
                     # check if the condition is satisfied after joining the position, if not, select again
