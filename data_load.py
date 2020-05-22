@@ -55,7 +55,6 @@ def load_data(file_path):
     nodes = list(Node(int(item[0]), float(item[1]), float(item[2]), float(item[3]), float(item[4]), float(item[5]),
                       float(item[6])) for item in node_list)
 
-    # 创建距离矩阵
     node_dist_mat = np.zeros((node_num, node_num))
     for i in range(node_num):
         node_a = nodes[i]
