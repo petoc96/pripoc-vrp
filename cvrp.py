@@ -12,25 +12,32 @@ beta = 5
 sigm = 3
 ro = 0.8
 th = 80
-file_name = "E-n22-k4.txt"
-iterations = 1000
-ants = 22
+file_name = "data/E-n22-k4.txt"
+file_name1 = "data/c101.txt"
+iterations = 100
+# ants = 22
+ants = 100
 
 
 def generate_graph():
     # read graph and constrains from file
-    capacity_limit, graph, demand, optimal_value = data_load.get_data(file_name)
-    vertices = list(graph.keys())
-    vertices.remove(1)
-    points = list(graph.values())
+    node_num, nodes, node_dist_mat, vehicle_num, vehicle_capacity = data_load.load_data(file_name1)
 
+    edges = {}
     # get every possible edge
-    edges = {(min(a, b), max(a, b)): np.sqrt((graph[a][0] - graph[b][0]) ** 2 + (graph[a][1] - graph[b][1]) ** 2) for
-             a in graph.keys() for b in graph.keys()}
-    # initialize feromones on each edge, initial value is 1
-    feromones = {(min(a, b), max(a, b)): 1 for a in graph.keys() for b in graph.keys() if a != b}
+    for i in range(1, node_num):
+        for j in range(i, node_num):
+            edges[(min(i, j), max(i, j))] = node_dist_mat[i][j]
 
-    return points, vertices, edges, capacity_limit, demand, feromones, optimal_value
+    # initialize feromones on each edge, initial value is 1
+    feromones = {(min(a, b), max(a, b)): 1 for a in range(node_num) for b in range(node_num) if a != b}
+    demand = {a.id: a.demand for a in nodes}
+    capacity_limit = vehicle_capacity
+    vertices = list(range(1, node_num))
+    points = [(a.x, a.y) for a in nodes]
+    times = [(a.ready_time, a.due_time) for a in nodes]
+
+    return points, vertices, edges, capacity_limit, demand, feromones, times
 
 
 def solution_of_one_ant(vertices, edges, capacity_limit, demand, feromones):
@@ -40,7 +47,7 @@ def solution_of_one_ant(vertices, edges, capacity_limit, demand, feromones):
         path = list()
         # start in random location
         city = np.random.choice(vertices)
-        # update capacity/ reload
+        # update capacity / reload
         capacity = capacity_limit - demand[city]
         # update path
         path.append(city)
@@ -53,7 +60,7 @@ def solution_of_one_ant(vertices, edges, capacity_limit, demand, feromones):
             # (feromones of the edge (current city, another city) ^ lambda) --> trail level/ posteriori desirability
             # * (1/distance) ^ beta --> atractivenes of route/ prioi desirability
             probabilities = list(map(lambda x: ((feromones[(min(x, city), max(x, city))]) ** alfa) * (
-                        (1 / edges[(min(x, city), max(x, city))]) ** beta), vertices))
+                    (1 / edges[(min(x, city), max(x, city))]) ** beta), vertices))
             # normalize the probabilities
             probabilities = probabilities / np.sum(probabilities)
             # chose the next city from the non-uniform random distribution
@@ -71,6 +78,7 @@ def solution_of_one_ant(vertices, edges, capacity_limit, demand, feromones):
         solution.append(path)
     return solution
 
+
 # calculates the lenght of the route
 def rate_solution(solution, edges):
     s = 0
@@ -86,21 +94,22 @@ def rate_solution(solution, edges):
         s = s + edges[(min(a, b), max(a, b))]
     return s
 
-#Elitist update rule-> the best solution deposits pheromone on its trail
+
+# Elitist update rule-> the best solution deposits pheromone on its trail
 def update_feromone(feromones, solutions, best_solution):
     # get the average lenght of solutions
     Lavg = reduce(lambda x, y: x + y, (i[1] for i in solutions)) / len(solutions)
-    #evaporation
-    # update each paths feromone: (1const + 2const/(avg lenght))*pheromone -> the less is the avg lenght the less is the evaporation ratio
+    # evaporation update each paths feromone: (1const + 2const/(avg lenght))*pheromone -> the less is the avg lenght
+    # the less is the evaporation ratio
     feromones = {k: (ro + th / Lavg) * v for (k, v) in feromones.items()}
-    #elitist update
+    # elitist update
     solutions.sort(key=lambda x: x[1])
     if best_solution is not None:
         if solutions[0][1] < best_solution[1]:
             best_solution = solutions[0]
         for path in best_solution[0]:
             for i in range(len(path) - 1):
-                #update the best path += sigma/weight
+                # update the best path += sigma/weight
                 feromones[(min(path[i], path[i + 1]), max(path[i], path[i + 1]))] = sigm / best_solution[1] + feromones[
                     (min(path[i], path[i + 1]), max(path[i], path[i + 1]))]
     else:
@@ -110,17 +119,17 @@ def update_feromone(feromones, solutions, best_solution):
         L = solutions[l][1]
         for path in paths:
             for i in range(len(path) - 1):
-                #for the first pheromone update, update the sigma best paths, by weighting its orders
+                # for the first pheromone update, update the sigma best paths, by weighting its orders
                 feromones[(min(path[i], path[i + 1]), max(path[i], path[i + 1]))] = (sigm - (l + 1) / L ** (l + 1)) + \
                                                                                     feromones[(
-                                                                                    min(path[i], path[i + 1]),
-                                                                                    max(path[i], path[i + 1]))]
+                                                                                        min(path[i], path[i + 1]),
+                                                                                        max(path[i], path[i + 1]))]
     return best_solution
 
 
 def main():
     best_solution = None
-    points, vertices, edges, capacity_limit, demand, feromones, optimal_value = generate_graph()
+    points, vertices, edges, capacity_limit, demand, feromones, times = generate_graph()
 
     for i in range(iterations):
         solutions = list()
@@ -128,7 +137,7 @@ def main():
             solution = solution_of_one_ant(vertices.copy(), edges, capacity_limit, demand, feromones)
             solutions.append((solution, rate_solution(solution, edges)))
         best_solution = update_feromone(feromones, solutions, best_solution)
-        print(str(i) + ":\t" + str(int(best_solution[1])) + "\t" + str(optimal_value))
+        print(str(i) + ":\t" + str(int(best_solution[1])) + "\t")
     return points, best_solution
 
 
@@ -196,14 +205,14 @@ if __name__ == "__main__":
     x = np.array([i[0] for i in points])
     y = np.array([i[1] for i in points])
 
-    plt.scatter(x, y)
-    for i in optimal_solution[0]:
-        i = np.array(i) - 1
-        # i = i-1
-        x1 = np.concatenate(([x[0]], x[i], [x[0]]))
-        y1 = np.concatenate(([y[0]], y[i], [y[0]]))
-        plt.plot(x1, y1)
-    plt.show()
+    # plt.scatter(x, y)
+    # for i in optimal_solution[0]:
+    #     i = np.array(i) - 1
+    #     # i = i-1
+    #     x1 = np.concatenate(([x[0]], x[i], [x[0]]))
+    #     y1 = np.concatenate(([y[0]], y[i], [y[0]]))
+    #     plt.plot(x1, y1)
+    # plt.show()
 
     plt.scatter(x, y)
     for i in solution[0]:
