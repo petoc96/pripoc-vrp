@@ -12,16 +12,17 @@ beta = 5
 sigm = 3
 ro = 0.8
 th = 80
-file_name = "data/E-n22-k4.txt"
-file_name1 = "data/c101.txt"
+q0 = 0.1
+#file_name = "data/E-n22-k4.txt"
+file_name = "data/c101.txt"
 iterations = 100
-# ants = 22
-ants = 100
+ants = 22
+#ants = 100
 
 
 def generate_graph():
     # read graph and constrains from file
-    node_num, nodes, node_dist_mat, vehicle_num, vehicle_capacity = data_load.load_data(file_name1)
+    node_num, nodes, node_dist_mat, vehicle_num, vehicle_capacity = data_load.load_data(file_name)
 
     edges = {}
     # get every possible edge
@@ -40,7 +41,7 @@ def generate_graph():
     return points, vertices, edges, capacity_limit, demand, feromones, times
 
 
-def solution_of_one_ant(vertices, edges, capacity_limit, demand, feromones):
+def solution_of_one_ant(vertices, edges, capacity_limit, demand, feromones, times):
     solution = list()
     # while there are cities left to visit
     while len(vertices) != 0:
@@ -53,34 +54,82 @@ def solution_of_one_ant(vertices, edges, capacity_limit, demand, feromones):
         path.append(city)
         # remove already visited city from path
         vertices.remove(city)
+### we should reset timer here
+        time = 0
+        tries = 0
         # while there are cities left to visit
         while len(vertices) != 0:
+#### so (1/distance) must be changed to solve TW, something like (target delivery time - ( current time + travel time)) -> should be preferably less
             # calculate probability for the remaining cities, according "that equation"
             # for each verticle apply the following function
             # (feromones of the edge (current city, another city) ^ lambda) --> trail level/ posteriori desirability
             # * (1/distance) ^ beta --> atractivenes of route/ prioi desirability
             probabilities = list(map(lambda x: ((feromones[(min(x, city), max(x, city))]) ** alfa) * (
                     (1 / edges[(min(x, city), max(x, city))]) ** beta), vertices))
+# 1/(distance + waiting time )^s1 * 1/(max arrival - min arrival)^s2 
+#                    (1 / ( edges[(min(x, city), max(x, city))] + max(times[x][0] - edges[(min(x, city), max(x, city))] - time, 0))**4 * 1/ (times[x][1] - times[x][0])**2 ) ** beta), vertices))
+
             # normalize the probabilities
+            #probabilities = list(map(lambda x: max(x,0),probabilities))
             probabilities = probabilities / np.sum(probabilities)
-            # chose the next city from the non-uniform random distribution
-            city = np.random.choice(vertices, p=probabilities)
-            # update capacity
-            capacity = capacity - demand[city]
-            # check if we are still in the capacity limit
-            if capacity > 0:
-                path.append(city)
-                vertices.remove(city)
+
+            prevcity = city
+
+ 
+            city = get_next_city(vertices, probabilities,city)
+            if not check_conditions(capacity,demand,city,edges,prevcity,time,times):
+                 city = get_next_city(vertices, probabilities,city)
+                 if not check_conditions(capacity,demand,city,edges,prevcity,time,times):
+                     city = get_next_city(vertices, probabilities,city)
+                     if not check_conditions(capacity,demand,city,edges,prevcity,time,times):
+                         #return to depo
+                         break
             else:
-                # return to depo
-                break
+                 path.append(city)
+                 vertices.remove(city)
+                 wait_time = max(times[city][0] - edges[(min(prevcity, city), max(prevcity, city))] - time, 0)
+                 time = time + edges[(min(prevcity, city), max(prevcity, city))] + wait_time
+
         # append path and repeat
         solution.append(path)
     return solution
 
+def check_conditions(capacity,demand,city,edges,prevcity,time,times):
+    # update capacity
+    capacity = capacity - demand[city]
+    # check if we are still in the capacity limit
+### also target delivery time should be checked here
+    if capacity > 0 and (time + edges[(min(prevcity, city), max(prevcity, city))] ) < times[city][1]:
+        return True
+    else:
+        return False
+
+def get_next_city(vertices, probabilities,current):
+    if np.random.rand() < q0:
+        max_prob_index = np.argmax(probabilities)
+        city = vertices[max_prob_index]
+    else:
+        # calculate N and max fitness value
+        N = len(vertices)
+
+        # normalize
+        sum_prob = np.sum(probabilities)
+        norm_prob = probabilities/sum_prob
+
+        # select: O(1)
+        while True:
+            # randomly select an individual with uniform probability
+            ind = int(N * random.random())
+            if random.random() <= norm_prob[ind]:
+               city = vertices[ind]
+               break
+    return city
+#            # chose the next city from the non-uniform random distribution
+#            city = np.random.choice(vertices, p=probabilities)
 
 # calculates the lenght of the route
 def rate_solution(solution, edges):
+#######################################this must be updated to solve TW too, expect if we still only optimize for distance
     s = 0
     for i in solution:
         # start from depo
@@ -134,7 +183,7 @@ def main():
     for i in range(iterations):
         solutions = list()
         for _ in range(ants):
-            solution = solution_of_one_ant(vertices.copy(), edges, capacity_limit, demand, feromones)
+            solution = solution_of_one_ant(vertices.copy(), edges, capacity_limit, demand, feromones, times)
             solutions.append((solution, rate_solution(solution, edges)))
         best_solution = update_feromone(feromones, solutions, best_solution)
         print(str(i) + ":\t" + str(int(best_solution[1])) + "\t")
@@ -216,7 +265,7 @@ if __name__ == "__main__":
 
     plt.scatter(x, y)
     for i in solution[0]:
-        i = np.array(i) - 1
+        i = np.array(i)
         # i = i-1
         x1 = np.concatenate(([x[0]], x[i], [x[0]]))
         y1 = np.concatenate(([y[0]], y[i], [y[0]]))
