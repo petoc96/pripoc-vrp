@@ -8,15 +8,15 @@ import getopt
 import matplotlib.pyplot as plt
 
 alfa = 2
-beta = 5
+beta = 6
 sigm = 3
 ro = 0.8
 th = 80
-q0 = 0.1
+q0 = 0.2
 #file_name = "data/E-n22-k4.txt"
 file_name = "data/c101.txt"
 iterations = 100
-ants = 22
+ants = 25
 #ants = 100
 
 
@@ -56,7 +56,6 @@ def solution_of_one_ant(vertices, edges, capacity_limit, demand, feromones, time
         vertices.remove(city)
 ### we should reset timer here
         time = 0
-        tries = 0
         # while there are cities left to visit
         while len(vertices) != 0:
 #### so (1/distance) must be changed to solve TW, something like (target delivery time - ( current time + travel time)) -> should be preferably less
@@ -65,30 +64,29 @@ def solution_of_one_ant(vertices, edges, capacity_limit, demand, feromones, time
             # (feromones of the edge (current city, another city) ^ lambda) --> trail level/ posteriori desirability
             # * (1/distance) ^ beta --> atractivenes of route/ prioi desirability
             probabilities = list(map(lambda x: ((feromones[(min(x, city), max(x, city))]) ** alfa) * (
-                    (1 / edges[(min(x, city), max(x, city))]) ** beta), vertices))
+                    (1 / edges[(min(x, city), max(x, city))]) ** beta),	 vertices))
 # 1/(distance + waiting time )^s1 * 1/(max arrival - min arrival)^s2 
 #                    (1 / ( edges[(min(x, city), max(x, city))] + max(times[x][0] - edges[(min(x, city), max(x, city))] - time, 0))**4 * 1/ (times[x][1] - times[x][0])**2 ) ** beta), vertices))
-
+            
             # normalize the probabilities
-            #probabilities = list(map(lambda x: max(x,0),probabilities))
             probabilities = probabilities / np.sum(probabilities)
 
             prevcity = city
-
- 
+            
+            # downt give up instantly 
             city = get_next_city(vertices, probabilities,city)
             if not check_conditions(capacity,demand,city,edges,prevcity,time,times):
                  city = get_next_city(vertices, probabilities,city)
                  if not check_conditions(capacity,demand,city,edges,prevcity,time,times):
-                     city = get_next_city(vertices, probabilities,city)
-                     if not check_conditions(capacity,demand,city,edges,prevcity,time,times):
-                         #return to depo
-                         break
-            else:
-                 path.append(city)
-                 vertices.remove(city)
-                 wait_time = max(times[city][0] - edges[(min(prevcity, city), max(prevcity, city))] - time, 0)
-                 time = time + edges[(min(prevcity, city), max(prevcity, city))] + wait_time
+                      city = get_next_city(vertices, probabilities,city)
+                      if not check_conditions(capacity,demand,city,edges,prevcity,time,times):
+                           #return to depo
+                           break
+            #update times
+            path.append(city)
+            vertices.remove(city)
+            wait_time = max(times[city][0] - edges[(min(prevcity, city), max(prevcity, city))] - time, 0)
+            time = time + edges[(min(prevcity, city), max(prevcity, city))] + wait_time
 
         # append path and repeat
         solution.append(path)
@@ -129,7 +127,6 @@ def get_next_city(vertices, probabilities,current):
 
 # calculates the lenght of the route
 def rate_solution(solution, edges):
-#######################################this must be updated to solve TW too, expect if we still only optimize for distance
     s = 0
     for i in solution:
         # start from depo
@@ -173,7 +170,8 @@ def update_feromone(feromones, solutions, best_solution):
                                                                                     feromones[(
                                                                                         min(path[i], path[i + 1]),
                                                                                         max(path[i], path[i + 1]))]
-    return best_solution
+    return best_solution, feromones
+
 
 
 def main():
@@ -185,7 +183,7 @@ def main():
         for _ in range(ants):
             solution = solution_of_one_ant(vertices.copy(), edges, capacity_limit, demand, feromones, times)
             solutions.append((solution, rate_solution(solution, edges)))
-        best_solution = update_feromone(feromones, solutions, best_solution)
+        best_solution, feromones = update_feromone(feromones, solutions, best_solution)
         print(str(i) + ":\t" + str(int(best_solution[1])) + "\t")
     return points, best_solution
 
@@ -241,6 +239,7 @@ if __name__ == "__main__":
           "\nsigma:\t" + str(sigm) +
           "\nrho:\t" + str(ro) +
           "\ntheta:\t" + str(th) +
+          "\nq0:\t" + str(q0) +
           "\niterations:\t" + str(iterations) +
           "\nnumber of ants:\t" + str(ants))
 
