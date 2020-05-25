@@ -1,4 +1,6 @@
-import math
+# samostatna implementacia zakladneho ACS algoritmu
+# obohateny o kapacitne obmedzenia a casove intervaly
+#
 import data_load
 import random
 import numpy as np
@@ -7,17 +9,15 @@ import sys
 import getopt
 import matplotlib.pyplot as plt
 
-alfa = 2
-beta = 6
+alfa = 1
+beta = 2
 sigm = 3
-ro = 0.8
+ro = 0.1
 th = 80
-q0 = 0.2
-#file_name = "data/E-n22-k4.txt"
+q0 = 0.1
 file_name = "data/c101.txt"
-iterations = 100
-ants = 25
-#ants = 100
+iterations = 1000
+ants = 10
 
 
 def generate_graph():
@@ -37,11 +37,12 @@ def generate_graph():
     vertices = list(range(1, node_num))
     points = [(a.x, a.y) for a in nodes]
     times = [(a.ready_time, a.due_time) for a in nodes]
+    service_times = [ a.service_time for a in nodes]
 
-    return points, vertices, edges, capacity_limit, demand, feromones, times
+    return points, vertices, edges, capacity_limit, demand, feromones, times, service_times
 
 
-def solution_of_one_ant(vertices, edges, capacity_limit, demand, feromones, times):
+def solution_of_one_ant(vertices, edges, capacity_limit, demand, feromones, times, service_times):
     solution = list()
     # while there are cities left to visit
     while len(vertices) != 0:
@@ -54,35 +55,35 @@ def solution_of_one_ant(vertices, edges, capacity_limit, demand, feromones, time
         path.append(city)
         # remove already visited city from path
         vertices.remove(city)
-### we should reset timer here
+        ### we should reset timer here
         time = 0
         # while there are cities left to visit
         while len(vertices) != 0:
-#### so (1/distance) must be changed to solve TW, something like (target delivery time - ( current time + travel time)) -> should be preferably less
+            #### so (1/distance) must be changed to solve TW, something like (target delivery time - ( current time + travel time)) -> should be preferably less
             # calculate probability for the remaining cities, according "that equation"
             # for each verticle apply the following function
             # (feromones of the edge (current city, another city) ^ lambda) --> trail level/ posteriori desirability
             # * (1/distance) ^ beta --> atractivenes of route/ prioi desirability
             probabilities = list(map(lambda x: ((feromones[(min(x, city), max(x, city))]) ** alfa) * (
-                    (1 / edges[(min(x, city), max(x, city))]) ** beta),	 vertices))
-# 1/(distance + waiting time )^s1 * 1/(max arrival - min arrival)^s2 
-#                    (1 / ( edges[(min(x, city), max(x, city))] + max(times[x][0] - edges[(min(x, city), max(x, city))] - time, 0))**4 * 1/ (times[x][1] - times[x][0])**2 ) ** beta), vertices))
-            
+                    (1 / edges[(min(x, city), max(x, city))]) ** beta), vertices))
+            # 1/(distance + waiting time )^s1 * 1/(max arrival - min arrival)^s2
+            #                    (1 / ( edges[(min(x, city), max(x, city))] + max(times[x][0] - edges[(min(x, city), max(x, city))] - time, 0))**4 * 1/ (times[x][1] - times[x][0])**2 ) ** beta), vertices))
+
             # normalize the probabilities
             probabilities = probabilities / np.sum(probabilities)
 
             prevcity = city
-            
-            # downt give up instantly 
-            city = get_next_city(vertices, probabilities,city)
-            if not check_conditions(capacity,demand,city,edges,prevcity,time,times):
-                 city = get_next_city(vertices, probabilities,city)
-                 if not check_conditions(capacity,demand,city,edges,prevcity,time,times):
-                      city = get_next_city(vertices, probabilities,city)
-                      if not check_conditions(capacity,demand,city,edges,prevcity,time,times):
-                           #return to depo
-                           break
-            #update times
+
+            # downt give up instantly
+            city = get_next_city(vertices, probabilities, city)
+            if not check_conditions(capacity, demand, city, edges, prevcity, time, times):
+                city = get_next_city(vertices, probabilities, city)
+                if not check_conditions(capacity, demand, city, edges, prevcity, time, times):
+                    city = get_next_city(vertices, probabilities, city)
+                    if not check_conditions(capacity, demand, city, edges, prevcity, time, times):
+                        # return to depo
+                        break
+            # update times
             path.append(city)
             vertices.remove(city)
             wait_time = max(times[city][0] - edges[(min(prevcity, city), max(prevcity, city))] - time, 0)
@@ -92,17 +93,19 @@ def solution_of_one_ant(vertices, edges, capacity_limit, demand, feromones, time
         solution.append(path)
     return solution
 
-def check_conditions(capacity,demand,city,edges,prevcity,time,times):
+
+def check_conditions(capacity, demand, city, edges, prevcity, time, times):
     # update capacity
     capacity = capacity - demand[city]
     # check if we are still in the capacity limit
-### also target delivery time should be checked here
-    if capacity > 0 and (time + edges[(min(prevcity, city), max(prevcity, city))] ) < times[city][1]:
+    ### also target delivery time should be checked here
+    if capacity > 0 and (time + edges[(min(prevcity, city), max(prevcity, city))]) < times[city][1]:
         return True
     else:
         return False
 
-def get_next_city(vertices, probabilities,current):
+
+def get_next_city(vertices, probabilities, current):
     if np.random.rand() < q0:
         max_prob_index = np.argmax(probabilities)
         city = vertices[max_prob_index]
@@ -112,16 +115,18 @@ def get_next_city(vertices, probabilities,current):
 
         # normalize
         sum_prob = np.sum(probabilities)
-        norm_prob = probabilities/sum_prob
+        norm_prob = probabilities / sum_prob
 
         # select: O(1)
         while True:
             # randomly select an individual with uniform probability
             ind = int(N * random.random())
             if random.random() <= norm_prob[ind]:
-               city = vertices[ind]
-               break
+                city = vertices[ind]
+                break
     return city
+
+
 #            # chose the next city from the non-uniform random distribution
 #            city = np.random.choice(vertices, p=probabilities)
 
@@ -173,15 +178,14 @@ def update_feromone(feromones, solutions, best_solution):
     return best_solution, feromones
 
 
-
 def main():
     best_solution = None
-    points, vertices, edges, capacity_limit, demand, feromones, times = generate_graph()
+    points, vertices, edges, capacity_limit, demand, feromones, times, service_times = generate_graph()
 
     for i in range(iterations):
         solutions = list()
         for _ in range(ants):
-            solution = solution_of_one_ant(vertices.copy(), edges, capacity_limit, demand, feromones, times)
+            solution = solution_of_one_ant(vertices.copy(), edges, capacity_limit, demand, feromones, times, service_times)
             solutions.append((solution, rate_solution(solution, edges)))
         best_solution, feromones = update_feromone(feromones, solutions, best_solution)
         print(str(i) + ":\t" + str(int(best_solution[1])) + "\t")
@@ -246,21 +250,9 @@ if __name__ == "__main__":
     points, solution = main()
 
     print("Solution: " + str(solution))
-    if file_name == "E-n22-k4.txt":
-        optimal_solution = ([[18, 21, 19, 16, 13], [17, 20, 22, 15], [14, 12, 5, 4, 9, 11], [10, 8, 6, 3, 2, 7]], 375)
-        print("Optimal solution: " + str(optimal_solution))
 
     x = np.array([i[0] for i in points])
     y = np.array([i[1] for i in points])
-
-    # plt.scatter(x, y)
-    # for i in optimal_solution[0]:
-    #     i = np.array(i) - 1
-    #     # i = i-1
-    #     x1 = np.concatenate(([x[0]], x[i], [x[0]]))
-    #     y1 = np.concatenate(([y[0]], y[i], [y[0]]))
-    #     plt.plot(x1, y1)
-    # plt.show()
 
     plt.scatter(x, y)
     for i in solution[0]:

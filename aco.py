@@ -57,33 +57,13 @@ class ACO:
 
             # update pheromone table
             self.graph.global_update_pheromone(self.best_path, self.best_path_distance)
-            given_iteration = 100
+            given_iteration = 250
             if iter - start_iteration > given_iteration:
                 print('Cannot find better solution after %d iteration' % given_iteration)
                 break
 
         print('Final best path dist is %f, number of vehicle is %d' % (self.best_path_distance, self.best_vehicle_num))
         print('Running time: %0.3f seconds' % (time.time() - start_time_total))
-
-        # x = np.array([i.x for i in self.graph.nodes])
-        # y = np.array([i.y for i in self.graph.nodes])
-        #
-        # size = len(self.best_path)
-        # idx_list = [idx + 1 for idx, val in enumerate(self.best_path) if val == 0]
-        # res = [self.best_path[i: j] for i, j in zip([0] + idx_list, idx_list + ([size] if idx_list[-1] != size else []))]
-        # new_res = []
-        # for r in res:
-        #     temp = np.concatenate((res[0], r))
-        #     new_res.append(temp)
-        # new_res = new_res[1:]
-        #
-        # plt.figure()
-        # plt.scatter(x, y)
-        # for i in new_res:
-        #     plt.plot(x[i], y[i])
-        # # plt.plot(x[self.best_path], y[self.best_path])
-        # plt.show()
-        # print(self.best_path)
 
         print_graph(self.graph, self.best_path, self.best_path_distance, self.best_vehicle_num)
 
